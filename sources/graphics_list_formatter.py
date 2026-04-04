@@ -77,68 +77,57 @@ def make_list(data: List = None, names: List[str] = None, texts: List[str] = Non
 
 async def make_commit_day_time_list(time_zone: str, repositories: Dict, commit_dates: Dict) -> str:
     """
-    Calculate commit-related info, how many commits were made, and at what time of day and day of week.
-
-    :param time_zone: User time zone.
-    :param repositories: User repositories list.
-    :param commit_dates: User commit data list.
-    :returns: string representation of statistics.
+    Simple text output for commits by time of day and day of week.
     """
     stats = str()
-    day_times = [0] * 4  # 0 - 6, 6 - 12, 12 - 18, 18 - 24
-    week_days = [0] * 7  # Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
+    day_times = [0] * 4  # Morning, Daytime, Evening, Night
+    week_days = [0] * 7  # Mon-Sun
 
-    for repository in repositories:
-        if repository["name"] not in commit_dates.keys():
+    for repo in repositories:
+        if repo["name"] not in commit_dates:
             continue
-
-        for committed_date in [commit_date for branch in commit_dates[repository["name"]].values() for commit_date in branch.values()]:
+        for committed_date in [c for branch in commit_dates[repo["name"]].values() for c in branch.values()]:
             local_date = datetime.strptime(committed_date, "%Y-%m-%dT%H:%M:%SZ")
-            date = local_date.replace(tzinfo=utc).astimezone(timezone(time_zone))
+            local_date = local_date.replace(tzinfo=utc).astimezone(timezone(time_zone))
+            day_times[local_date.hour // 6] += 1
+            week_days[local_date.isoweekday() - 1] += 1
 
-            day_times[date.hour // 6] += 1
-            week_days[date.isoweekday() - 1] += 1
+    # Time of Day
+    dt_labels = ["Morning", "Daytime", "Evening", "Night"]
+    dt_total = sum(day_times)
+    stats += "```text\n"
+    for label, count in zip(dt_labels, day_times):
+        perc = round(count / dt_total * 100, 2) if dt_total > 0 else 0
+        stats += f"{label:<20} {count:<5} commits   {perc:05.2f} %\n"
+    stats += "```\n\n"
 
-    sum_day = sum(day_times)
-    sum_week = sum(week_days)
-    day_times = day_times[1:] + day_times[:1]
-
-    if EM.SHOW_COMMIT:
-        dt_names = [FM.t(DAY_TIME_NAMES[i]) for i in range(len(day_times))]
-        dt_texts = [f"{day_time} commits" for day_time in day_times]
-        dt_percents = [0 if sum_day == 0 else round((day_time / sum_day) * 100, 2) for day_time in day_times]
-        stats += f"```text\n{make_list(names=dt_names, texts=dt_texts, percents=dt_percents, top_num=7, sort=False)}\n```\n"
-
-    if EM.SHOW_DAYS_OF_WEEK:
-        wd_names = [FM.t(week_day) for week_day in WEEK_DAY_NAMES]
-        wd_texts = [f"{week_day} commits" for week_day in week_days]
-        wd_percents = [0 if sum_week == 0 else round((week_day / sum_week) * 100, 2) for week_day in week_days]
-        stats += f"```text\n{make_list(names=wd_names, texts=wd_texts, percents=wd_percents, top_num=7, sort=False)}\n```\n"
+    # Day of Week
+    wd_labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    wd_total = sum(week_days)
+    stats += "```text\n"
+    for label, count in zip(wd_labels, week_days):
+        perc = round(count / wd_total * 100, 2) if wd_total > 0 else 0
+        stats += f"{label:<20} {count:<5} commits   {perc:05.2f} %\n"
+    stats += "```\n"
 
     return stats
 
 
 def make_language_per_repo_list(repositories: Dict) -> str:
     """
-    Calculate language-related info, how many repositories in what language user has.
-
-    :param repositories: User repositories.
-    :returns: string representation of statistics.
+    Simple text list of languages per repo.
     """
-    language_count = dict()
-    repos_with_language = [repo for repo in repositories if repo["primaryLanguage"] is not None]
-    for repo in repos_with_language:
-        language = repo["primaryLanguage"]["name"]
-        language_count[language] = language_count.get(language, {"count": 0})
-        language_count[language]["count"] += 1
+    language_count = {}
+    for repo in repositories:
+        if repo["primaryLanguage"]:
+            lang = repo["primaryLanguage"]["name"]
+            language_count[lang] = language_count.get(lang, 0) + 1
 
-    names = list(language_count.keys())
-    texts = [f"{language_count[lang]['count']} {'repo' if language_count[lang]['count'] == 1 else 'repos'}" for lang in names]
-    percents = [round(language_count[lang]["count"] / len(repos_with_language) * 100, 2) for lang in names]
+    if not language_count:
+        return "No Activity Tracked This Week\n\n"
 
-    if language_count:
-        top_language = max(language_count.keys(), key=lambda x: language_count[x]["count"])
-        title = f"**{FM.t('I Mostly Code in') % top_language}** \n\n"
-    else:
-        title = ""
-    return f"{title}```text\n{make_list(names=names, texts=texts, percents=percents)}\n```\n\n"
+    stats = "**Programming Languages:**\n\n```text\n"
+    for lang, count in language_count.items():
+        stats += f"{lang:<20} {count} repo{'s' if count != 1 else ''}\n"
+    stats += "```\n\n"
+    return stats
