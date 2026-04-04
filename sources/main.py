@@ -45,8 +45,9 @@ async def get_waka_time_stats(repositories: Dict, commit_dates: Dict) -> str:
     # ----------------------------
     # 1. Programming Languages first
     # ----------------------------
-    lang_list = no_activity if len(data["data"]["languages"]) == 0 else make_list(data["data"]["languages"])
-    stats += f"Programming Languages: \n{lang_list}\n\n"
+    if EM.SHOW_LANGUAGE:
+        lang_list = no_activity if len(data["data"]["languages"]) == 0 else make_list(data["data"]["languages"])
+        stats += f"Programming Languages: \n{lang_list}\n\n"
 
     # ----------------------------
     # 2. Time of Day
