@@ -67,56 +67,37 @@ async def get_waka_time_stats(repositories: Dict, commit_dates: Dict) -> str:
 async def get_short_github_info() -> str:
     """
     Collects user info from GitHub public profile.
-    The stats include: disk usage, contributions number, whether the user has opted to hire, public and private repositories number.
-
-    :returns: String representation of the info.
+    Plain text only, no emojis.
     """
     DBM.i("Adding short GitHub info...")
-    stats = f"**🐱 {FM.t('My GitHub Data')}** \n\n"
+    stats = f"**{FM.t('My GitHub Data')}** \n\n"
 
-    DBM.i("Adding user disk usage info...")
+    # Disk usage
     if GHM.USER.disk_usage is None:
         disk_usage = FM.t("Used in GitHub's Storage") % "?"
         DBM.p("Please add new github personal access token with user permission!")
     else:
         disk_usage = FM.t("Used in GitHub's Storage") % naturalsize(GHM.USER.disk_usage)
-    stats += f"> 📦 {disk_usage} \n > \n"
+    stats += f"{disk_usage}\n"
 
+    # Contributions
     data = await DM.get_remote_json("github_stats")
-    if data is None:
-        DBM.p("GitHub contributions data unavailable!")
-        return stats
-
-    DBM.i("Adding contributions info...")
-    if len(data["years"]) > 0:
+    if data and len(data["years"]) > 0:
         contributions = FM.t("Contributions in the year") % (
             intcomma(data["years"][0]["total"]),
             data["years"][0]["year"],
         )
-        stats += f"> 🏆 {contributions}\n > \n"
-    else:
-        DBM.p("GitHub contributions data unavailable!")
+        stats += f"{contributions}\n"
 
-    DBM.i("Adding opted for hire info...")
+    # Hireable
     opted_to_hire = GHM.USER.hireable
-    if opted_to_hire:
-        stats += f"> 💼 {FM.t('Opted to Hire')}\n > \n"
-    else:
-        stats += f"> 🚫 {FM.t('Not Opted to Hire')}\n > \n"
+    stats += f"{FM.t('Opted to Hire') if opted_to_hire else FM.t('Not Opted to Hire')}\n"
 
-    DBM.i("Adding public repositories info...")
+    # Repositories
     public_repo = GHM.USER.public_repos
-    if public_repo != 1:
-        stats += f"> 📜 {FM.t('public repositories') % public_repo} \n > \n"
-    else:
-        stats += f"> 📜 {FM.t('public repository') % public_repo} \n > \n"
-
-    DBM.i("Adding private repositories info...")
+    stats += f"{FM.t('public repositories') % public_repo if public_repo != 1 else FM.t('public repository') % public_repo}\n"
     private_repo = GHM.USER.owned_private_repos if GHM.USER.owned_private_repos is not None else 0
-    if public_repo != 1:
-        stats += f"> 🔑 {FM.t('private repositories') % private_repo} \n > \n"
-    else:
-        stats += f"> 🔑 {FM.t('private repository') % private_repo} \n > \n"
+    stats += f"{FM.t('private repositories') % private_repo if private_repo != 1 else FM.t('private repository') % private_repo}\n"
 
     DBM.g("Short GitHub info added!")
     return stats
